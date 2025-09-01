@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precision Chart Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full flex flex-col items-center space-y-6">
+        <h1 class="text-3xl font-bold text-gray-800">Chart Analyzer Tool</h1>
+        <p class="text-gray-600 text-center">
+            Upload an image of a precision approach chart and get the elevation at a specific distance.
+            <br>
+            <span class="text-sm italic text-gray-400 mt-2">(This is a simulated tool. A real-world version would require advanced image processing.)</span>
+        </p>
+
+        <div class="w-full space-y-4">
+            <!-- File Upload -->
+            <div class="flex flex-col items-center space-y-2 w-full">
+                <label for="chart-upload" class="text-gray-700 font-medium">Upload Chart Image (JPG/PNG)</label>
+                <div class="bg-gray-200 w-full h-48 rounded-lg border-2 border-dashed border-gray-400 flex items-center justify-center cursor-pointer" onclick="document.getElementById('chart-upload').click()">
+                    <span id="upload-text" class="text-gray-500">Click to upload or drag & drop</span>
+                    <input type="file" id="chart-upload" accept=".jpg, .jpeg, .png, .pdf" class="hidden" onchange="previewImage(event)">
+                </div>
+                <img id="image-preview" class="hidden rounded-lg max-h-48" />
+            </div>
+
+            <!-- Distance Inputs -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="distance-input-1" class="text-gray-700 font-medium">Distance 1 (m or A)</label>
+                    <input type="text" id="distance-input-1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 100 or A">
+                </div>
+                <div>
+                    <label for="distance-input-2" class="text-gray-700 font-medium">Distance 2 (m or B)</label>
+                    <input type="text" id="distance-input-2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 200 or B">
+                </div>
+                <div>
+                    <label for="distance-input-3" class="text-gray-700 font-medium">Distance 3 (m or C)</label>
+                    <input type="text" id="distance-input-3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 400 or C">
+                </div>
+                <div>
+                    <label for="distance-input-4" class="text-gray-700 font-medium">Distance 4 (m or D)</label>
+                    <input type="text" id="distance-input-4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 600 or D">
+                </div>
+            </div>
+
+            <!-- Analyze Button -->
+            <button id="analyze-btn" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Analyze Chart
+            </button>
+        </div>
+
+        <!-- Result Displays -->
+        <div id="result-container" class="mt-6 w-full hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Results</h2>
+            <div id="result-1" class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-2 hidden">
+                <p class="text-lg text-gray-700">Elevation at <span id="output-distance-1" class="font-bold text-blue-600"></span>m: <span id="output-value-1" class="font-bold"></span></p>
+            </div>
+            <div id="result-2" class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-2 hidden">
+                <p class="text-lg text-gray-700">Elevation at <span id="output-distance-2" class="font-bold text-blue-600"></span>m: <span id="output-value-2" class="font-bold"></span></p>
+            </div>
+            <div id="result-3" class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-2 hidden">
+                <p class="text-lg text-gray-700">Elevation at <span id="output-distance-3" class="font-bold text-blue-600"></span>m: <span id="output-value-3" class="font-bold"></span></p>
+            </div>
+            <div id="result-4" class="bg-gray-50 p-4 rounded-lg border border-gray-200 hidden">
+                <p class="text-lg text-gray-700">Elevation at <span id="output-distance-4" class="font-bold text-blue-600"></span>m: <span id="output-value-4" class="font-bold"></span></p>
+            </div>
+        </div>
+
+        <!-- Custom Modal for Alerts -->
+        <div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Warning</h3>
+                <p id="modal-message" class="text-gray-700 mb-4"></p>
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="w-full py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to display the custom alert modal
+        function showModal(message) {
+            document.getElementById('modal-message').textContent = message;
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        // Function to preview the uploaded image
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // PDF files cannot be processed client-side.
+                if (file.type === 'application/pdf') {
+                    showModal("PDF files cannot be processed in this tool. Please convert your file to JPG or PNG.");
+                    document.getElementById('chart-upload').value = '';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imagePreview = document.getElementById('image-preview');
+                    const uploadText = document.getElementById('upload-text');
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                    uploadText.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Simulating the core logic of the chart analysis
+        // In a real-world tool, this function would use a powerful computer vision API
+        // to detect the chart lines and extract the data dynamically from the image.
+        function getElevationAtDistance(input) {
+            const predefinedPoints = {
+                'A': { distance: 100, elevation: -1 },
+                'B': { distance: 200, elevation: -2 },
+                'C': { distance: 400, elevation: -4 },
+                'D': { distance: 600, elevation: -6 }
+            };
+            
+            // A more detailed set of points to make the interpolation more accurate.
+            const dataPoints = [
+                { distance: 0, elevation: 0 },
+                { distance: 50, elevation: -0.5 },
+                { distance: 100, elevation: -1.0 },
+                { distance: 150, elevation: -1.5 },
+                { distance: 200, elevation: -2.0 },
+                { distance: 250, elevation: -2.5 },
+                { distance: 300, elevation: -3.0 },
+                { distance: 350, elevation: -3.5 },
+                { distance: 400, elevation: -4.0 },
+                { distance: 450, elevation: -4.5 },
+                { distance: 500, elevation: -5.0 },
+                { distance: 550, elevation: -5.5 },
+                { distance: 600, elevation: -6.0 }
+            ];
+
+            let distanceInMeters;
+            let elevationInMeters;
+
+            if (predefinedPoints[input.toUpperCase()]) {
+                const data = predefinedPoints[input.toUpperCase()];
+                distanceInMeters = data.distance;
+                elevationInMeters = data.elevation;
+            } else {
+                distanceInMeters = parseFloat(input);
+                if (isNaN(distanceInMeters) || distanceInMeters < 0) {
+                    return { distance: null, value: null };
+                }
+
+                // Find the two data points that bracket the input distance
+                let p1 = dataPoints[0];
+                let p2 = dataPoints[dataPoints.length - 1];
+                let foundRange = false;
+
+                for (let i = 0; i < dataPoints.length - 1; i++) {
+                    if (distanceInMeters >= dataPoints[i].distance && distanceInMeters <= dataPoints[i + 1].distance) {
+                        p1 = dataPoints[i];
+                        p2 = dataPoints[i + 1];
+                        foundRange = true;
+                        break;
+                    }
+                }
+
+                if (!foundRange) {
+                    return { distance: distanceInMeters, value: "Out of range" };
+                }
+
+                // Perform linear interpolation
+                const slope = (p2.elevation - p1.elevation) / (p2.distance - p1.distance);
+                elevationInMeters = p1.elevation + slope * (distanceInMeters - p1.distance);
+            }
+
+            // Invert the sign as requested (above the line is negative, below is positive)
+            const invertedElevation = -1 * elevationInMeters;
+
+            // Convert meters to feet
+            const elevationInFeet = invertedElevation * 3.28084;
+            
+            return {
+                distance: distanceInMeters,
+                value: elevationInFeet
+            };
+        }
+
+        document.getElementById('analyze-btn').addEventListener('click', () => {
+            const imagePreview = document.getElementById('image-preview');
+            const resultContainer = document.getElementById('result-container');
+            const inputs = [
+                document.getElementById('distance-input-1').value.trim(),
+                document.getElementById('distance-input-2').value.trim(),
+                document.getElementById('distance-input-3').value.trim(),
+                document.getElementById('distance-input-4').value.trim()
+            ];
+
+            // Hide all results initially
+            document.getElementById('result-1').classList.add('hidden');
+            document.getElementById('result-2').classList.add('hidden');
+            document.getElementById('result-3').classList.add('hidden');
+            document.getElementById('result-4').classList.add('hidden');
+            resultContainer.classList.add('hidden');
+
+            if (imagePreview.classList.contains('hidden')) {
+                showModal("Please upload a chart image first.");
+                return;
+            }
+
+            let atLeastOneInput = false;
+            for (let i = 0; i < inputs.length; i++) {
+                if (inputs[i] !== "") {
+                    atLeastOneInput = true;
+                    const result = getElevationAtDistance(inputs[i]);
+                    const outputDistance = document.getElementById(`output-distance-${i + 1}`);
+                    const outputValue = document.getElementById(`output-value-${i + 1}`);
+                    const resultDiv = document.getElementById(`result-${i + 1}`);
+
+                    if (result.distance === null) {
+                        showModal(`Input ${i + 1} is invalid. Please enter a valid distance or letter.`);
+                        return;
+                    }
+
+                    outputDistance.textContent = result.distance;
+                    if (typeof result.value === 'string') {
+                        outputValue.textContent = result.value;
+                        outputValue.classList.remove('text-green-600');
+                        outputValue.classList.add('text-red-500');
+                    } else {
+                        outputValue.textContent = `${result.value.toFixed(2)} feet`;
+                        outputValue.classList.remove('text-red-500');
+                        outputValue.classList.add('text-green-600');
+                    }
+                    resultDiv.classList.remove('hidden');
+                }
+            }
+
+            if (atLeastOneInput) {
+                resultContainer.classList.remove('hidden');
+            } else {
+                showModal("Please enter at least one distance to analyze.");
+            }
+        });
+    </script>
+</body>
+</html>
